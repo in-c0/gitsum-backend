@@ -1,0 +1,50 @@
+{
+    "name": "gitsum-backend",
+    "version": "1.0.0",
+    "description": "Backend for GITSUM - A summarizer for public GitHub repositories.",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "dev": "nodemon server.js",
+        "lint": "eslint .",
+        "test": "jest --coverage"
+    },
+    "dependencies": {
+        "axios": "^1.7.9",
+        "body-parser": "^1.20.3",
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.7",
+        "express": "^4.21.2",
+        "express-rate-limit": "^6.11.2",
+        "express-session": "^1.18.1",
+        "helmet": "^7.0.0",
+        "ioredis": "^5.5.0",
+        "mongoose": "^7.8.6",
+        "passport": "^0.6.0",
+        "passport-github2": "^0.1.12",
+        "rate-limit-redis": "^4.2.0",
+        "redis": "^4.6.5",
+        "repomix": "github:yamadashy/repomix",
+        "session": "^0.1.0"
+    },
+    "devDependencies": {
+        "eslint": "^8.53.0",
+        "jest": "^29.6.2",
+        "nodemon": "^3.0.1",
+        "supertest": "^6.3.3"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "keywords": [
+        "github",
+        "repository",
+        "summarizer",
+        "express",
+        "nodejs",
+        "redis",
+        "passport"
+    ],
+    "author": "Your Name",
+    "license": "MIT"
+}
