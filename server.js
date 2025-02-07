@@ -189,11 +189,13 @@ async function runRepomix(repoUrl) {
       // Clone the repository
       console.log(`Cloning repository: ${repoUrl} into ${repoDir}`);
       await execAsync(`git clone --depth=1 ${repoUrl} ${repoDir}`);
-  
-      // Run Repomix on the local directory
-      console.log(`Running Repomix on ${repoDir}`);
-      const { stdout, stderr } = await execAsync(`repomix ${repoDir}`);
-  
+
+      // Run Repomix on the local directory with NO_COLOR enabled
+      console.log(`Running Repomix on ${repoDir} without colorization`);
+      const { stdout, stderr } = await execAsync(`repomix ${repoDir}`, {
+        env: { ...process.env, NO_COLOR: '1' }
+      });
+
       if (stderr && stderr.trim() !== "") {
         console.error("Repomix stderr:", stderr);
         throw new Error(stderr);
