@@ -213,6 +213,34 @@ async function checkUsage(user) {
   }
 }
 
+// --- Set Up Greenlock Express for Automated Certificate Renewal ---
+const Greenlock = require('greenlock-express');
+
+// Initialize Greenlock with production settings
+// Ensure these environment variables are set:
+// - DOMAIN (e.g., api.gitsum.com)
+// - EMAIL (your administrator email)
+// - PORT (typically 80 for HTTP challenge, but Greenlock will handle redirection to HTTPS)
+Greenlock.init({
+  packageRoot: __dirname,
+  configDir: './greenlock.d', // Directory where certificates and configuration will be stored
+  maintainerEmail: process.env.EMAIL, // Your email address for certificate registration
+  cluster: false,
+  // Uncomment the next line for staging (testing) with Let's Encrypt.
+  // staging: true,
+  // Production mode (default): remove or set staging: false when ready.
+  // Specify your approved domains:
+  sites: [{
+    subject: process.env.DOMAIN,         // e.g., "api.gitsum.com"
+    altnames: [process.env.DOMAIN]         // Additional domains if needed
+  }]
+})
+// .serve() automatically creates and renews certificates and serves your app over HTTPS.
+.serve(app);
+
+// --- Log that the server is running ---
+logger.info('Greenlock Express is configured for automatic certificate issuance and renewal.');
+
 const fs = require('fs');
 const path = require('path');
 
