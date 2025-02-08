@@ -20,6 +20,22 @@ const execAsync = util.promisify(exec);
 // --- Redis Client Setup ---
 const redisClient = new Redis(process.env.REDIS_URL);
 
+// --- Winston Logger Setup ---
+const winston = require('winston');
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    // JSON formatting for production logging
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console(),
+    // Optionally add a file transport:
+    // new winston.transports.File({ filename: 'logs/production.log' })
+  ]
+});
+
 // --- Rate Limiting Middleware ---
 const limiter = rateLimit({
   store: new RedisStore({
