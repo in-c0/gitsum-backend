@@ -2,8 +2,8 @@
     "name": "gitsum-backend",
     "version": "1.0.0",
     "bin": {
-    "gitsum": "./src/cli.js"
-     },
+        "gitsum": "./src/cli.js"
+    },
     "description": "Backend for GITSUM - A summarizer for public GitHub repositories.",
     "main": "server.js",
     "scripts": {
@@ -23,6 +23,7 @@
         "express-session": "^1.18.1",
         "helmet": "^7.0.0",
         "ioredis": "^5.5.0",
+        "mongodb": "^6.13.0",
         "mongoose": "^7.8.6",
         "passport": "^0.6.0",
         "passport-github2": "^0.1.12",
