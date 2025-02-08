@@ -1,3 +1,14 @@
+## Project Structure
+
+```bash
+/src
+   /analysis.js     
+   /license.js      
+   /cli.js          
+/package.json
+/.env
+```
+
 ## Preparation
 
 Run `npm install`
@@ -22,4 +33,14 @@ Make sure to include a repoUrl in the Body (Raw JSON):
   "repoUrl": "https://github.com/facebook/react"
 }
 ```
+
+Note we can run Repomix on the local directory with custom settings (e.g. NO_COLOUR)
+
+
+## Debugging
+
+`/summarize`:
+
+ - Error code 401: Check OpenAI API
+
 

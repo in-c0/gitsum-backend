@@ -1,6 +1,9 @@
 {
     "name": "gitsum-backend",
     "version": "1.0.0",
+    "bin": {
+    "gitsum": "./src/cli.js"
+     },
     "description": "Backend for GITSUM - A summarizer for public GitHub repositories.",
     "main": "server.js",
     "scripts": {
@@ -12,6 +15,7 @@
     "dependencies": {
         "axios": "^1.7.9",
         "body-parser": "^1.20.3",
+        "commander": "^13.1.0",
         "cors": "^2.8.5",
         "dotenv": "^16.4.7",
         "express": "^4.21.2",
