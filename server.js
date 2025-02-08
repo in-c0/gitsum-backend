@@ -47,7 +47,7 @@ const limiter = rateLimit({
   message: { error: 'Too many requests from this IP, please try again after 15 minutes.' },
 });
 
-// --- Mongoose Setup for Persistent Storage ---
+// --- MongoDB Connection ---
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
