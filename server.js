@@ -1,6 +1,8 @@
 // server.js
 require('dotenv').config(); // Load environment variables from .env
 
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
@@ -240,9 +242,6 @@ Greenlock.init({
 
 // --- Log that the server is running ---
 logger.info('Greenlock Express is configured for automatic certificate issuance and renewal.');
-
-const fs = require('fs');
-const path = require('path');
 
 /**
  * Executes the repomix CLI command after cloning the repository.
