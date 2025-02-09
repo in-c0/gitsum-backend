@@ -32,7 +32,8 @@
         "rate-limit-redis": "^4.2.0",
         "redis": "^4.6.5",
         "repomix": "github:yamadashy/repomix",
-        "session": "^0.1.0"
+        "session": "^0.1.0",
+        "winston": "^3.17.0"
     },
     "devDependencies": {
         "eslint": "^8.53.0",
