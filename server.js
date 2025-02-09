@@ -1,9 +1,13 @@
-require('dotenv').config(); // Load environment variables from .env
+// Load environment variables early
+require('dotenv').config();
 
-// --- Import Modules ---
+// -------------------------
+// Import Required Modules
+// -------------------------
 const fs = require('fs');
 const https = require('https');
 const express = require('express');
+const helmet = require('helmet');
 const session = require('express-session');
 const passport = require('passport');
 const GitHubStrategy = require('passport-github2').Strategy;
@@ -17,83 +21,87 @@ const cors = require('cors');
 const util = require('util');
 const { exec } = require('child_process');
 const execAsync = util.promisify(exec);
-const helmet = require('helmet');
 const winston = require('winston');
 const Greenlock = require('greenlock-express');
-const constants = require('constants');  // For TLS secure options
+const constants = require('constants');  // for secureOptions
+const pathModule = require('path');
 
-// --- Winston Logger Setup ---
+// -------------------------
+// Create Express App
+// -------------------------
+const app = express();
+
+// -------------------------
+// Logger Setup with Winston
+// -------------------------
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
     winston.format.timestamp(),
-    winston.format.json() // JSON formatting for production logging
+    winston.format.json() // Use JSON format for production logging
   ),
   transports: [
     new winston.transports.Console(),
-    // Optionally add a file transport:
+    // Optionally, log to a file:
     // new winston.transports.File({ filename: 'logs/production.log' })
   ]
 });
 
-// --- Create Express Application ---
-// (This MUST be done before we reference 'app' anywhere)
-const app = express();
-
-// --- Use Helmet to set secure HTTP headers including HSTS ---
+// -------------------------
+// Security Middleware
+// -------------------------
 app.use(helmet({
   hsts: {
-    maxAge: 31536000,         // 1 year
-    includeSubDomains: true,   // Apply HSTS to all subdomains
+    maxAge: 31536000,         // 1 year in seconds
+    includeSubDomains: true,
     preload: true
   },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"]
-      // Adjust other CSP directives as needed
+      // Further CSP directives as needed
     }
   }
 }));
 
-// --- Body Parser and CORS ---
 app.use(bodyParser.json());
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : [];
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true, // Allow cookies for sessions
-}));
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 
-// --- Rate Limiting Middleware ---
+// -------------------------
+// Rate Limiting
+// -------------------------
 const redisClient = new Redis(process.env.REDIS_URL);
 app.use(rateLimit({
   store: new RedisStore({
-    sendCommand: (...args) => redisClient.call(...args),
+    sendCommand: (...args) => redisClient.call(...args)
   }),
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: { error: 'Too many requests from this IP, please try again after 15 minutes.' },
+  max: 100,
+  message: { error: 'Too many requests from this IP, please try again after 15 minutes.' }
 }));
 
-// --- Session Management ---
+// -------------------------
+// Session Management
+// -------------------------
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // secure cookies in production
+    secure: process.env.NODE_ENV === 'production',
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-  },
+  }
 }));
 
-// --- Passport Initialization ---
+// -------------------------
+// Passport Initialization
+// -------------------------
 app.use(passport.initialize());
 app.use(passport.session());
 
-// --- Passport Configuration ---
 passport.serializeUser((user, done) => {
-  done(null, user.id); // Save Mongoose _id
+  done(null, user.id); // Store the MongoDB _id
 });
 
 passport.deserializeUser(async (id, done) => {
@@ -105,10 +113,36 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
+// -------------------------
+// MongoDB Connection & User Model
+// -------------------------
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+});
+mongoose.connection.on('error', (err) => {
+  logger.error('MongoDB connection error:', { error: err });
+});
+mongoose.connection.once('open', () => {
+  logger.info('Connected to MongoDB');
+});
+
+const userSchema = new mongoose.Schema({
+  githubId: { type: String, required: true, unique: true },
+  username: String,
+  subscription: { type: String, default: 'free' },
+  usage: { type: Number, default: 0 },
+  lastReset: { type: Date, default: Date.now }
+});
+const User = mongoose.model('User', userSchema);
+
+// -------------------------
+// Passport GitHub Strategy
+// -------------------------
 passport.use(new GitHubStrategy({
     clientID: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    callbackURL: process.env.GITHUB_CALLBACK_URL,
+    callbackURL: process.env.GITHUB_CALLBACK_URL
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
@@ -119,7 +153,7 @@ passport.use(new GitHubStrategy({
           username: profile.username,
           subscription: 'free',
           usage: 0,
-          lastReset: new Date(),
+          lastReset: new Date()
         });
       } else {
         user.username = profile.username;
@@ -133,47 +167,31 @@ passport.use(new GitHubStrategy({
   }
 ));
 
-// --- MongoDB Connection ---
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
-mongoose.connection.on('error', (err) => {
-  logger.error('MongoDB connection error:', { error: err });
-});
-mongoose.connection.once('open', () => {
-  logger.info('Connected to MongoDB');
-});
+// -------------------------
+// Authentication Routes
+// -------------------------
+app.get('/auth/github',
+  passport.authenticate('github', { scope: ['user:email'] })
+);
 
-// --- Define Mongoose Schema and Model for User ---
-const userSchema = new mongoose.Schema({
-  githubId: { type: String, required: true, unique: true },
-  username: String,
-  subscription: { type: String, default: 'free' },
-  usage: { type: Number, default: 0 },
-  lastReset: { type: Date, default: Date.now },
-});
-const User = mongoose.model('User', userSchema);
+app.get('/auth/github/callback',
+  passport.authenticate('github', { failureRedirect: '/' }),
+  (req, res) => {
+    res.redirect('/dashboard');
+  }
+);
 
-// --- HTTPS and Greenlock Express Setup for Automated Certificate Renewal ---
-Greenlock.init({
-  packageRoot: __dirname,
-  configDir: './greenlock.d', // Directory for certs and config
-  maintainerEmail: process.env.EMAIL,
-  cluster: false,
-  // For production, do not set staging (or set staging: false)
-  sites: [{
-    subject: process.env.DOMAIN, // e.g., "api.gitsum.com"
-    altnames: [process.env.DOMAIN]
-  }]
-})
-.serve(app);
+// -------------------------
+// Middleware: Ensure Authentication
+// -------------------------
+function ensureAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) return next();
+  res.status(401).json({ error: 'Unauthorized – please log in via GitHub.' });
+}
 
-logger.info('Greenlock Express is configured for automatic certificate issuance and renewal.');
-
-// --- Helper Functions and Endpoints ---
-
-// Helper: Check and reset usage count when a new month starts.
+// -------------------------
+// Helper: Check & Reset Monthly Usage
+// -------------------------
 async function checkUsage(user) {
   const now = new Date();
   if (
@@ -186,13 +204,9 @@ async function checkUsage(user) {
   }
 }
 
-const pathModule = require('path');
-
-/**
- * Executes the repomix CLI command after cloning the repository.
- * @param {string} repoUrl - The GitHub repository URL.
- * @returns {Promise<Object>} - Parsed analysis from Repomix.
- */
+// -------------------------
+// Functions for Repomix Integration
+// -------------------------
 async function runRepomix(repoUrl) {
   const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)(\/|$)/);
   if (!match) {
@@ -202,20 +216,16 @@ async function runRepomix(repoUrl) {
   const repo = match[2].replace(/\.git$/, '');
   const repoDir = pathModule.join(__dirname, "temp_repos", `${owner}_${repo}`);
   try {
-    // Ensure the temp_repos directory exists
     const tempReposDir = pathModule.join(__dirname, "temp_repos");
     if (!fs.existsSync(tempReposDir)) {
       fs.mkdirSync(tempReposDir, { recursive: true });
     }
-    // Delete repo directory if it exists
     if (fs.existsSync(repoDir)) {
       console.log(`Deleting existing directory: ${repoDir}`);
       fs.rmSync(repoDir, { recursive: true, force: true });
     }
-    // Clone the repository
     console.log(`Cloning repository: ${repoUrl} into ${repoDir}`);
     await execAsync(`git clone --depth=1 ${repoUrl} ${repoDir}`);
-    // Run Repomix on the local directory with NO_COLOR enabled
     console.log(`Running Repomix on ${repoDir} without colorization`);
     const { stdout, stderr } = await execAsync(`repomix ${repoDir}`, {
       env: { ...process.env, NO_COLOR: '1' }
@@ -224,9 +234,7 @@ async function runRepomix(repoUrl) {
       console.error("Repomix stderr:", stderr);
       throw new Error(stderr);
     }
-    // Parse output
     const parsedData = parseRepomixOutput(stdout);
-    // Delete cloned repository after analysis
     console.log(`Deleting cloned repository: ${repoDir}`);
     fs.rmSync(repoDir, { recursive: true, force: true });
     return parsedData;
@@ -236,11 +244,6 @@ async function runRepomix(repoUrl) {
   }
 }
 
-/**
- * Parses Repomix CLI output and extracts key data.
- * @param {string} output - Raw Repomix output.
- * @returns {Object} - Extracted repository analysis.
- */
 function parseRepomixOutput(output) {
   const lines = output.split("\n");
   let summary = "";
@@ -260,25 +263,9 @@ function parseRepomixOutput(output) {
   };
 }
 
-// --- Authentication Routes ---
-app.get('/auth/github',
-  passport.authenticate('github', { scope: ['user:email'] })
-);
-
-app.get('/auth/github/callback', 
-  passport.authenticate('github', { failureRedirect: '/' }),
-  (req, res) => {
-    res.redirect('/dashboard');
-  }
-);
-
-// Middleware to ensure the user is authenticated.
-function ensureAuthenticated(req, res, next) {
-  if (req.isAuthenticated()) return next();
-  res.status(401).json({ error: 'Unauthorized – please log in via GitHub.' });
-}
-
-// --- Summarization Endpoint ---
+// -------------------------
+// Summarization Endpoint
+// -------------------------
 app.post('/summarize', ensureAuthenticated, async (req, res, next) => {
   try {
     const { repoUrl } = req.body;
@@ -328,7 +315,9 @@ Please provide a detailed summary, highlight key design choices, analyze the cod
   }
 });
 
-// --- File Tree Endpoint ---
+// -------------------------
+// File Tree Endpoint
+// -------------------------
 app.get('/filetree', ensureAuthenticated, async (req, res, next) => {
   try {
     const { repoUrl, branch } = req.query;
@@ -354,12 +343,16 @@ app.get('/filetree', ensureAuthenticated, async (req, res, next) => {
   }
 });
 
-// --- Dashboard Endpoint ---
+// -------------------------
+// Dashboard Endpoint
+// -------------------------
 app.get('/dashboard', ensureAuthenticated, (req, res) => {
   res.send(`Hello, ${req.user.username}. You have used ${req.user.usage} summaries this month.`);
 });
 
-// --- Global Error-Handling Middleware ---
+// -------------------------
+// Global Error-Handling Middleware
+// -------------------------
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err.stack);
   const status = err.status || 500;
@@ -368,7 +361,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-// --- Start the Server (HTTP handled by Greenlock) ---
+// -------------------------
+// Start the Server (HTTP is handled by Greenlock)
+// -------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`GITSUM backend listening on port ${PORT}`);
