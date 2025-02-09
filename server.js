@@ -49,30 +49,6 @@ const limiter = rateLimit({
   message: { error: 'Too many requests from this IP, please try again after 15 minutes.' },
 });
 
-// --- Load SSL/TLS Certificates ---
-const privateKey = fs.readFileSync(process.env.SSL_PRIVATE_KEY_PATH, 'utf8');
-const certificate = fs.readFileSync(process.env.SSL_CERT_PATH, 'utf8');
-let ca;
-if (process.env.SSL_CA_PATH) {
-  ca = fs.readFileSync(process.env.SSL_CA_PATH, 'utf8');
-}
-
-const credentials = {
-  key: privateKey,
-  cert: certificate,
-  ca: ca,
-  // Secure options: disable insecure protocols (SSLv2, SSLv3, TLSv1, TLSv1.1)
-  secureOptions: require('constants').SSL_OP_NO_SSLv2 |
-                 require('constants').SSL_OP_NO_SSLv3 |
-                 require('constants').SSL_OP_NO_TLSv1 |
-                 require('constants').SSL_OP_NO_TLSv1_1,
-  // Use strong cipher suites and honor server cipher order
-  ciphers: 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:' +
-           'ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:' +
-           'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256',
-  honorCipherOrder: true
-};
-
 // Use Helmet to set secure HTTP headers including HSTS
 app.use(helmet({
   hsts: {
